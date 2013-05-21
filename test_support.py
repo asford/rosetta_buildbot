@@ -1,16 +1,25 @@
 from buildbot.steps.shell import ShellCommand
 from buildbot.status.results import SUCCESS, FAILURE
+from buildbot.process.properties import Interpolate, Property
 
 import re
 
-class UnitTestStep(ShellCommand):
+class UnitTest(ShellCommand):
     """Execute rosetta unit tests and return success or failure."""
 
-    def __init__(self, build_mode = None, jobs=None, verbose=False, **kwargs):
+    def __init__(self, build_mode = None, build_extras = None, jobs=None, verbose=False, **kwargs):
 
         command = ["test/run.py", "-d", "../database"]
+
         if build_mode:
-            command.extend(["--mode", build_mode])
+            command.extend(["--mode" , build_mode])
+        else:
+            command.extend([Interpolate("%(prop:build_mode:#?|--mode|)s"), Interpolate("%(prop:build_mode)s")])
+
+        if build_extras:
+            command.extend(["--extras" , build_extras])
+        else:
+            command.extend([Interpolate("%(prop:build_extras:#?|--extras|)s"), Interpolate("%(prop:build_extras)s")])
 
         if jobs:
             command.extend(["-j", str(jobs)])
@@ -62,3 +71,23 @@ class UnitTestStep(ShellCommand):
 
     def createSummary(self, log):
         self.addCompleteLog("test_summary", self.test_summary)
+
+class IntegrationTest(ShellCommand):
+
+    def __init__(self, build_mode = None, build_extras = None, jobs=None, **kwargs):
+        command = ["./integration.py"]
+
+        if build_mode:
+            command.extend(["--mode" , build_mode])
+        else:
+            command.extend([Interpolate("%(prop:build_mode:#?|--mode|)s"), Interpolate("%(prop:build_mode)s")])
+
+        if build_extras:
+            command.extend(["--extras" , build_extras])
+        else:
+            command.extend([Interpolate("%(prop:build_extras:#?|--extras|)s"), Interpolate("%(prop:build_extras)s")])
+
+        if jobs:
+            command.extend(["-j", str(jobs)])
+
+        ShellCommand.__init__(self, command=command, **kwargs) 
