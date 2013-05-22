@@ -6,4 +6,4 @@ source activate
 mkdir -p /scratch/USERS/fordas/buildbot
 pushd /scratch/USERS/fordas/buildbot
 
-buildslave create-slave -r dev_slave_`hostname` dig18 `hostname` dev
+buildslave create-slave -r dev_slave_`hostname` buildbot0 `hostname` dev
