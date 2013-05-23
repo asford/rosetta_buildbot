@@ -7,10 +7,9 @@ target_builds = ["release"]
 
 target_branches = {
   "master"                      : {"extras" : None},
-  "pyrosetta_numeric"           : {"extras" : None},
-  "pyrosetta_protocols"         : {"extras" : None},
-  "pyrosetta_fragment_matching" : {"extras" : None},
+  "residue_orient"              : {"extras" : None},
+  "pyrosetta_build"             : {"extras" : None},
   "indexed_structure_store"     : {"extras" : "hdf5"}
 }
 
-integration_result_dir = "/work/fordas/buildbot/integration_results"
+integration_result_dir = "/work/buildbot/integration_results"
