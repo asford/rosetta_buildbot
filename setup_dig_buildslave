@@ -1,9 +1,6 @@
 #!/bin/zsh
 
-pushd /work/fordas/buildbot
-source activate
+mkdir -p /scratch/USERS/$USER/buildbot
+pushd /scratch/USERS/$USER/buildbot
 
-mkdir -p /scratch/USERS/fordas/buildbot
-pushd /scratch/USERS/fordas/buildbot
-
-buildslave create-slave -r dev_slave_`hostname` buildbot0 `hostname` dev
+buildslave create-slave --umask=022 -r dev_slave_`hostname` buildbot0 `hostname` dev
