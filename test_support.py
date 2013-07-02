@@ -22,7 +22,7 @@ class UnitTest(ShellCommand):
             command.extend([Interpolate("%(prop:build_extras:#?|--extras|)s"), Interpolate("%(prop:build_extras)s")])
 
         if jobs:
-            command.extend(["-j", str(jobs)])
+            command.extend(["-j", jobs])
 
         if not verbose:
             command.extend(["--mute", "all"])
@@ -88,6 +88,6 @@ class IntegrationTest(ShellCommand):
             command.extend([Interpolate("%(prop:build_extras:#?|--extras|)s"), Interpolate("%(prop:build_extras)s")])
 
         if jobs:
-            command.extend(["-j", str(jobs)])
+            command.extend(["-j", jobs])
 
         ShellCommand.__init__(self, command=command, **kwargs) 
