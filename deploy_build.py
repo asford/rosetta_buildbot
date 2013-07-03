@@ -41,7 +41,7 @@ def perform_test_build(rosetta_root, targets = None, mode = None, extras = None)
     if mode:
         command.append("mode=%s" % mode)
     if extras:
-        command.append("extras=%s", extras)
+        command.append("extras=%s" % extras)
     
     command.extend(targets)
 
@@ -104,7 +104,12 @@ def archive_build_products(rosetta_root, target_bins, target_libs, target_direct
         b_source = path.join(rosetta_root, "source", b)
         b_target = path.join(bin_drop_dir, get_bin_name(b))
         logging.info("Archive bin: %s %s", b_source, b_target)
+        #Copy file with stripped filename and then symlink under old name
         shutil.copy(b_source, b_target)
+
+        b_link_target = path.join(bin_drop_dir, path.basename(b))
+        logging.info("Linking bin: %s %s", get_bin_name(b), b_link_target)
+        os.symlink(get_bin_name(b), b_link_target)
 
     os.makedirs(lib_drop_dir)
     for l in target_libs:
@@ -117,9 +122,17 @@ def archive_build_products(rosetta_root, target_bins, target_libs, target_direct
     logging.info("Archive database: %s %s", source_database, database_drop_dir)
     shutil.copytree(source_database, database_drop_dir)
 
-def setup_build_products(rosetta_root, drop_directory):
-    """Perform single execution of rosetta binary to setup dropped rosetta database."""
+def setup_build_products(rosetta_root, drop_directory, build_type = None, test_binary = None):
+    """Execute single rosetta binary to setup rosetta database.
+    
+        rosetta_root - Rosetta main root directory.
+        drop_directory - Archived drop directory to search for bin & database.
+        build_type - 'mpi' if build requires mpirun, else None.
+        test_binary - Binary to execute, resolves score_jd2, rosetta_scripts, or relax if None.
+    """
     candidate_binaries = ["score_jd2", "rosetta_scripts", "relax"]
+    if test_binary:
+        candidate_binaries.insert(0, test_binary)
 
     tmpdir = tempfile.mkdtemp()
     
@@ -135,8 +148,29 @@ def setup_build_products(rosetta_root, drop_directory):
             logging.warning("Unable to resolve test binary from candidate binaries: %s", candidate_binaries)
             return
 
-        logging.info("Executing test binary to prepare target database: %s", test_binary)
-        subprocess.call([test_binary, "-s", path.join(rosetta_root, "source/test/core/io/test_in.pdb" )], cwd=tmpdir)
+        test_command = []
+
+        if build_type=="mpi":
+            try:
+                mpi_prefix = re.search(
+                        "(.*)bin/mpirun",
+                        subprocess.check_output("which mpirun", shell=True)).group(1)
+            except subprocess.CalledProcessError:
+                logging.warning("setup_build_products unable to resolve mpirun executable for mpi build.")
+                return
+
+            test_command.extend(["mpirun", "--prefix", mpi_prefix])
+        elif build_type:
+            logging.warning("Unrecognized setup_build_products build type: %s", build_type)
+
+        test_command.extend([test_binary, "-s", path.join(rosetta_root, "source/test/core/io/test_in.pdb")])
+
+        logging.info("Executing test binary to prepare target database: %s", test_command)
+        subprocess.call(test_command, cwd=tmpdir)
+	
+        if build_type=="mpi":
+            logging.info("Updating mpi database permissions: %s", test_command)
+            subprocess.call("chmod a+r %s/database/rotamer/ExtendedOpt1-5/*" % drop_directory, shell=True, cwd=tmpdir)
 
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
@@ -178,4 +212,8 @@ if __name__ == "__main__":
 
     archive_build_products(rosetta_root, bins, libs, drop_directory)
 
-    setup_build_products(rosetta_root, drop_directory)
+    build_type = None
+    if args.extras and re.search("mpi", args.extras):
+        build_type = "mpi"
+
+    setup_build_products(rosetta_root, drop_directory, build_type = build_type)
