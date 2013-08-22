@@ -1,7 +1,4 @@
 #!/bin/zsh
 
-pushd /work/fordas/buildbot
-source activate
-
-pushd /scratch/USERS/fordas/buildbot
+pushd /scratch/USERS/$USER/buildbot
 buildslave start dev_slave_*
