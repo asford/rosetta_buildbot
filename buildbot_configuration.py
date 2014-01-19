@@ -8,9 +8,18 @@
 slave_list = \
     [{
         "name" : "hyak",
-        "args" : {"max_builds" : 1, "properties" : {"slave_build_cores" : 20}},
-    }] +\
-    [{
+        "args" : {
+            "max_builds" : 1,
+            "properties" : {
+                "slave_build_cores" : 12,
+                # Source prefixs by the python library and boost libraries used during build.
+                "binding_python_path" : "/gscratch/baker/buildbot/opt",
+                "binding_boost_path"  : "/gscratch/baker/buildbot/opt",
+                "slave_repo_url"      : 'ssh://git@localhost:9990/RosettaCommons/main.git'
+            }
+        }
+    },
+    {
         "name" : "buildbot",
         "args" : {
             "max_builds" : 1,
@@ -18,39 +27,57 @@ slave_list = \
                 "slave_build_cores" : 6,
                 # Source prefixs by the python library and boost libraries used during build.
                 "binding_python_path" : "/usr/local",
-                "binding_boost_path" : "/work/buildbot/opt"
+                "binding_boost_path" : "/work/buildbot/opt",
+                "slave_repo_url"      : 'ssh://git@github.com/RosettaCommons/main.git'
             }
         }
     }]
 
 master_repo_url = 'ssh://git@github.com/RosettaCommons/main.git'
-slave_repo_url  = 'ssh://git@github.com/RosettaCommons/main.git'
 
 default_build_environment = "work"
 
 build_environments = { 
-        "work" : {
-            ### Repository urls used by master and slave instances.
-            "target_slaves" : ["buildbot"],
-            # Target build types, ["release", "debug"]
-            "target_builds" : ["release"],
+    "work" : {
+        ### Repository urls used by master and slave instances.
+        "target_slaves" : ["buildbot"],
+        # Target build types, ["release", "debug"]
+        "target_builds" : ["release"],
 
-            # Target build branches, optionally specify build extras for the branch
-            "target_branches" : {
-              "master"                         : {"extras" : ""},
-              "asford/indexed_structure_store" : {"extras" : "hdf5"},
-              "scheme/master"                  : {"extras" : ""}
-            },
+        # Target build branches, optionally specify build extras for the branch
+        "target_branches" : {
+          "master"                         : {"extras" : ""},
+          "asford/indexed_structure_store" : {"extras" : "hdf5"},
+          "scheme/master"                  : {"extras" : ""}
+        },
 
-            # Integration test results will be delivered to this filesystem location by slaves.
-            "integration_result_dir" : "/work/buildbot/integration_results",
+        # Integration test results will be delivered to this filesystem location by slaves.
+        "integration_result_dir" : "/work/buildbot/integration_results",
 
-            # Build results will be delivered to this filesystem location by slaves.
-            "build_result_dir" : "/work/buildbot/builds",
-            
-            # Build python bindings
-            "build_bindings" : True,
-    }
+        # Build results will be delivered to this filesystem location by slaves.
+        "build_result_dir" : "/work/buildbot/builds",
+        
+        # Build python bindings
+        "build_bindings" : True,
+    },
+    "hyak" : {
+        ### Repository urls used by master and slave instances.
+        "target_slaves" : ["hyak"],
+        "target_builds" : ["release"],
+
+        # Target build branches, optionally specify build extras for the branch
+        "target_branches" : { },
+
+        # Integration test results will be delivered to this filesystem location by slaves.
+        "integration_result_dir" : "/gscratch/baker/buildbot/integration_results",
+
+        # Build results will be delivered to this filesystem location by slaves.
+        "build_result_dir" : "/gscratch/baker/buildbot/builds",
+        
+        # Build python bindings
+        "build_bindings" : True,
+    },
+
 }
 
 all_target_branches = ["master", "asford/indexed_structure_store", "scheme/master"]

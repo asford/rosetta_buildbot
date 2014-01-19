@@ -1,6 +1,5 @@
 #Builder imports
 from buildbot.process.factory import BuildFactory
-#Using slave-side checkout logic to use 'reference' parameter
 from buildbot.steps.source.git import Git
 from buildbot.steps.shell import ShellCommand
 from buildbot.steps.transfer import FileDownload
@@ -9,7 +8,6 @@ from buildbot.process.properties import Interpolate, Property, renderer
 
 from test_support import UnitTest, IntegrationTest
 from build_support import SconsCompile, DeployBuild
-from buildbot_configuration import slave_repo_url
 
 #Steps to perform a full build
 update_scons_step = ShellCommand(
@@ -124,7 +122,7 @@ clean_build_step = ShellCommand(
 
 complete_full_factory = BuildFactory(
     # check out the source
-    [ Git(repourl=Property('repository', slave_repo_url) , mode='incremental', workdir="main", branch=Interpolate("%(src::branch)s")), clean_build_step ] +
+    [ Git(repourl=Property("slave_repo_url"), mode='incremental', workdir="main"), clean_build_step ] +
     full_build_steps +
     binding_build_steps +
     unittest_steps +
@@ -132,14 +130,14 @@ complete_full_factory = BuildFactory(
 
 complete_without_bindings_factory = BuildFactory(
     # check out the source
-    [ Git(repourl=Property('repository', slave_repo_url) , mode='incremental', workdir="main", branch=Interpolate("%(src::branch)s")), clean_build_step ] +
+    [ Git(repourl=Property("slave_repo_url"), mode='incremental', workdir="main"), clean_build_step ] +
     full_build_steps +
     unittest_steps +
     integration_steps)
 
 build_and_deploy_full_factory = BuildFactory(
     # check out the source
-    [ Git(repourl=Property('repository', slave_repo_url) , mode='incremental', workdir="main", branch=Interpolate("%(src::branch)s")), clean_build_step, update_scons_step ] +
+    [ Git(repourl=Property("slave_repo_url"), mode='incremental', workdir="main"), clean_build_step, update_scons_step ] +
     [ SconsCompile(
       jobs=Interpolate("%(prop:slave_build_cores)s"),
       workdir="main/source",
@@ -152,7 +150,7 @@ build_and_deploy_full_factory = BuildFactory(
 
 build_and_deploy_without_bindings_factory = BuildFactory(
     # check out the source
-    [ Git(repourl=Property('repository', slave_repo_url) , mode='incremental', workdir="main", branch=Interpolate("%(src::branch)s")), clean_build_step, update_scons_step] +
+    [ Git(repourl=Property("slave_repo_url"), mode='incremental', workdir="main"), clean_build_step, update_scons_step] +
     [SconsCompile(
       jobs=Interpolate("%(prop:slave_build_cores)s"),
       workdir="main/source",
