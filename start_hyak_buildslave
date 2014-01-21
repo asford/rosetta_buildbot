@@ -22,7 +22,7 @@ else:
     raise ValueError("Error starting buildslave.")
 
 
-tunnel_args = ["ssh", "-N", "-R", "9989:buildbot0:9989", "-R", "9990:github.com:22", "fw.hyak.%s" % target_host]
+tunnel_args = ["ssh", "-oBatchMode=yes", "-N", "-R", "9989:buildbot0:9989", "-R", "9990:github.com:22", "fw.hyak.%s" % target_host]
 print "Opening tunnel: %s" % (tunnel_args,)
 buildslave_tunnel = subprocess.Popen(tunnel_args)
 time.sleep(1)
