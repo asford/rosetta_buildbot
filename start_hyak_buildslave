@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+import time
+import re
+import subprocess
+
+buildslave_process = subprocess.Popen(["ssh", "-oBatchMode=yes", "login2.hyak.washington.edu", "/sw/torque/bin/qsub -x -d . -I -l nodes=1,walltime=300:00:00 ~/bin/buildslave_blocking_start /gscratch/baker/buildbot/rosetta_buildbot_slave"], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+
+target_host = None
+while not buildslave_process.poll():
+    time.sleep(1)
+
+    line = buildslave_process.stdout.readline()
+    print line.strip()
+
+    match = re.search("hostname:(\S*)", line)
+    if match:
+        print "Resolved host: %s" % target_host
+        target_host = match.group(1)
+        break
+else:
+    raise ValueError("Error starting buildslave.")
+
+
+tunnel_args = ["ssh", "-N", "-R", "9989:buildbot0:9989", "-R", "9990:github.com:22", "fw.hyak.%s" % target_host]
+print "Opening tunnel: %s" % (tunnel_args,)
+buildslave_tunnel = subprocess.Popen(tunnel_args)
+time.sleep(1)
+
+if buildslave_tunnel.poll():
+    buildslave_process.terminate()
+    raise ValueError("Error opening tunnel.")
+
+print "Waiting."
+
+sout, sin = buildslave_process.communicate()
+print sout
+
+print "Closing tunnel."
+
+buildslave_tunnel.terminate()
+buildslave_tunnel.wait()
