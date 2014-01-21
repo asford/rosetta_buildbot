@@ -9,16 +9,17 @@ from buildbot.process.properties import Interpolate, Property, renderer
 from test_support import UnitTest, IntegrationTest
 from build_support import SconsCompile, DeployBuild
 
-#Steps to perform a full build
-update_scons_step = ShellCommand(
+# Updates scons configuration.
+update_scons_steps = [
+    FileDownload(mastersrc="site.settings", slavedest="source/tools/build/site.settings", workdir="main"),
+    ShellCommand(
       command='echo "SetOption(\'implicit_cache\', 1);Decider(\'MD5-timestamp\')" >> SConscript',
       workdir="main/source",
       haltOnFailure=True,
-      description="configure", descriptionSuffix="SConscript")
+      description="configure", descriptionSuffix="SConscript")]
 
-full_build_steps = [
-    # Insert build options into sconscript
-    update_scons_step,
+#Steps to perform a full build
+full_build_steps = update_scons_steps + [
     # build for unit tests
     SconsCompile(
       build_targets=None, # Set blank build targets, otherwise default targets pulled from env.
@@ -137,7 +138,7 @@ complete_without_bindings_factory = BuildFactory(
 
 build_and_deploy_full_factory = BuildFactory(
     # check out the source
-    [ Git(repourl=Property("slave_repo_url"), mode='incremental', workdir="main"), clean_build_step, update_scons_step ] +
+    [ Git(repourl=Property("slave_repo_url"), mode='incremental', workdir="main"), clean_build_step] + update_scons_steps +
     [ SconsCompile(
       jobs=Interpolate("%(prop:slave_build_cores)s"),
       workdir="main/source",
@@ -150,7 +151,7 @@ build_and_deploy_full_factory = BuildFactory(
 
 build_and_deploy_without_bindings_factory = BuildFactory(
     # check out the source
-    [ Git(repourl=Property("slave_repo_url"), mode='incremental', workdir="main"), clean_build_step, update_scons_step] +
+    [ Git(repourl=Property("slave_repo_url"), mode='incremental', workdir="main"), clean_build_step] +  update_scons_steps +
     [SconsCompile(
       jobs=Interpolate("%(prop:slave_build_cores)s"),
       workdir="main/source",
