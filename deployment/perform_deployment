@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+import os
+from os import path
+
+import argparse
+import logging
+import itertools
+
+logging.basicConfig(level=logging.INFO)
+
+import subprocess
+from multiprocessing.pool import ThreadPool
+
+parser = argparse.ArgumentParser(description="Install and verify pyrosetta on /scratch disks across dig cluster.")
+parser.add_argument('branch', help="Source branch for deployment.")
+parser.add_argument('--target_env', default=None, help="Target environment name. [default: <branch>]")
+parser.add_argument("--dry_run", "-n", default=False, action="store_true", help="Do not execute deployment commands.")
+parser.add_argument("--simultaneous", default=5, type=int, help="Maximum number of simultaneous deployments.")
+
+args = parser.parse_args()
+logging.info("Args: %s", args)
+
+work_root = path.abspath(path.dirname(__file__))
+
+deployment_pool = ThreadPool(processes=args.simultaneous)
+deployment_subscript = path.join(work_root, "deploy_pyrosetta")
+
+def perform_deployment(target_host):
+    deployment_command = ["ssh", "-oBatchMode=yes", target_host, deployment_subscript, args.branch] + (["--target_env", args.target_env] if args.target_env else [])
+    logging.info("Deploying: %s", deployment_command)
+    try:
+        if not args.dry_run:
+            return subprocess.check_output(deployment_command, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        logging.error("Error deploying: %s\n%s", deployment_command, e.output)
+
+with open(path.join(work_root, "deployment_targets")) as dt:
+    deployment_targets = [l.strip() for l in dt.readlines()]
+
+logging.info("Deployment targets: %s", deployment_targets)
+deployment_results = deployment_pool.map(perform_deployment, deployment_targets, chunksize=1)

@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+import sys
+
+import os
+from os import path
+import shutil
+import glob
+
+import subprocess
+
+import argparse
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+parser = argparse.ArgumentParser(description="Install and verify pyrosetta on /scratch disk.")
+parser.add_argument('branch', help="Source branch for deployment.")
+parser.add_argument('--target_env', default=None, help="Target environment name. [default: <branch>]")
+parser.add_argument("--dry_run", "-n", default=False, action="store_true", help="Do not execute deployment commands.")
+
+args = parser.parse_args()
+
+source_prefix = "/work/buildbot/builds/release"
+deployment_prefix = "/scratch/USERS/buildbot/opt"
+
+source_dir = path.join(source_prefix, args.branch)
+logging.info("Source distribution directory: %s", source_dir)
+
+if not args.target_env:
+    target_dir = path.join(deployment_prefix, args.branch, "python")
+else:
+    target_dir = path.join(deployment_prefix, args.target_env, python)
+logging.info("Deploy target directory: %s", target_dir)
+
+if not args.dry_run:
+    if not path.exists(target_dir):
+        os.makedirs(target_dir)
+
+install_env = dict(os.environ)
+install_env["PYTHONPATH"] = target_dir
+install_cmd = ['easy_install', '-U', '-H', 'None', '-f', source_dir, '-a', '-d', target_dir, 'pyrosetta']
+logging.info("Deploying: %s", install_cmd)
+
+if not args.dry_run:
+    subprocess.check_call(install_cmd, env=install_env)
+
+test_cmd = ['python', '-c', 'import rosetta; rosetta.init(); rosetta.core.scoring.getScoreFunction()(rosetta.pose_from_sequence("A"))']
+logging.info("Testing: %s", test_cmd)
+
+if not args.dry_run:
+    subprocess.check_call(test_cmd, env=install_env)
+
+for local_pyrosetta_install in glob.glob(path.join(target_dir, "pyrosetta*.egg")):
+    local_pyrosetta_egg = path.basename(local_pyrosetta_install)
+    if not path.exists(path.join(source_dir, local_pyrosetta_egg)):
+        logging.info("Removing local %(local_pyrosetta_egg)s no present in source: %(source_dir)s" % locals())
+        if not args.dry_run:
+            shutil.rmtree(local_pyrosetta_install)
+
+#find $local_pyrosetta -execdir chmod a=u,go-w {} +
