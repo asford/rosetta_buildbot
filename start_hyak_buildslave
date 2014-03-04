@@ -1,42 +1,55 @@
 #!/usr/bin/env python
 
+
+import logging
 import time
 import re
 import subprocess
 
-buildslave_process = subprocess.Popen(["ssh", "-oBatchMode=yes", "login2.hyak.washington.edu", "/sw/torque/bin/qsub -x -d . -I -l nodes=1,walltime=300:00:00 ~/bin/buildslave_blocking_start /gscratch/baker/buildbot/rosetta_buildbot_slave"], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+def main():
+    buildslave_command = ["ssh", "-oBatchMode=yes", "login2.hyak.washington.edu", "/sw/torque/bin/qsub -x -d . -I -l nodes=1,walltime=300:00:00 ~/bin/buildslave_blocking_start /gscratch/baker/buildbot/rosetta_buildbot_slave" ]
+    logging.info("Submitting buildslave job: %s" % " ".join("'%s'" % s for s in buildslave_command))
 
-target_host = None
-while not buildslave_process.poll():
+    buildslave_process = subprocess.Popen( buildslave_command , stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     time.sleep(1)
 
-    line = buildslave_process.stdout.readline()
-    print line.strip()
+    target_host = None
+    while not buildslave_process.poll():
+        time.sleep(1)
 
-    match = re.search("hostname:(\S*)", line)
-    if match:
-        print "Resolved host: %s" % target_host
-        target_host = match.group(1)
-        break
-else:
-    raise ValueError("Error starting buildslave.")
+        line = buildslave_process.stdout.readline()
+        logging.info(line.strip())
+
+        match = re.search("hostname:(\S*)", line)
+        if match:
+            target_host = match.group(1)
+            logging.info("Resolved host: %s" % target_host)
+            break
+    else:
+        raise ValueError("Error starting buildslave.")
 
 
-tunnel_args = ["ssh", "-oBatchMode=yes", "-N", "-R", "9989:buildbot0:9989", "-R", "9990:github.com:22", "fw.hyak.%s" % target_host]
-print "Opening tunnel: %s" % (tunnel_args,)
-buildslave_tunnel = subprocess.Popen(tunnel_args)
-time.sleep(1)
+    tunnel_args = ["ssh", "-oBatchMode=yes", "-oStrictHostKeyChecking=no", "-N", "-R", "9989:buildbot0:9989", "-R", "9990:github.com:22", "fw.hyak.%s" % target_host]
+    logging.info("Opening tunnel: %s" % " ".join("'%s'" % s for s in tunnel_args))
+    buildslave_tunnel = subprocess.Popen(tunnel_args)
+    time.sleep(1)
 
-if buildslave_tunnel.poll():
-    buildslave_process.terminate()
-    raise ValueError("Error opening tunnel.")
+    if buildslave_tunnel.poll():
+        buildslave_process.terminate()
+        raise ValueError("Error opening tunnel.")
 
-print "Waiting."
+    logging.info("Waiting.")
 
-sout, sin = buildslave_process.communicate()
-print sout
+    sout, sin = buildslave_process.communicate()
+    logging.info(sout)
 
-print "Closing tunnel."
+    logging.info("Closing tunnel.")
 
-buildslave_tunnel.terminate()
-buildslave_tunnel.wait()
+    buildslave_tunnel.terminate()
+    buildslave_tunnel.wait()
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format=("%(asctime)s %(message)s"))
+
+    main()
