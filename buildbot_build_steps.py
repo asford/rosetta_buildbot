@@ -88,7 +88,7 @@ binding_build_steps = [
       timeout=60*60,
       description="build", descriptionSuffix="bindings")
     ]
-    
+
 # Binary deployment steps
 binary_deploy_steps = [
   FileDownload(mastersrc="deploy_build.py", slavedest="deploy_build.py", workdir="main"),
@@ -143,7 +143,7 @@ build_and_deploy_full_factory = BuildFactory(
       jobs=Interpolate("%(prop:slave_build_cores)s"),
       workdir="main/source",
       haltOnFailure=True,
-      description="compiling", descriptionSuffix="bin")] + 
+      description="compiling", descriptionSuffix="bin")] +
     binding_build_steps +
     binary_deploy_steps +
     binding_deploy_steps)
@@ -156,6 +156,6 @@ build_and_deploy_without_bindings_factory = BuildFactory(
       jobs=Interpolate("%(prop:slave_build_cores)s"),
       workdir="main/source",
       haltOnFailure=True,
-      description="compiling", descriptionSuffix="bin")] + 
+      description="compiling", descriptionSuffix="bin")] +
     binary_deploy_steps
 )
