@@ -37,7 +37,7 @@ master_repo_url = 'ssh://git@github.com/RosettaCommons/main.git'
 
 default_build_environment = "work"
 
-build_environments = { 
+build_environments = {
     "work" : {
         ### Repository urls used by master and slave instances.
         "target_slaves" : ["buildbot"],
@@ -56,10 +56,11 @@ build_environments = {
 
         # Build results will be delivered to this filesystem location by slaves.
         "build_result_dir" : "/work/buildbot/builds",
-        
+
         # Build python bindings
         "build_bindings" : True,
     },
+
     "hyak" : {
         ### Repository urls used by master and slave instances.
         "target_slaves" : ["hyak"],
@@ -73,11 +74,10 @@ build_environments = {
 
         # Build results will be delivered to this filesystem location by slaves.
         "build_result_dir" : "/gscratch/baker/buildbot/builds",
-        
+
         # Build python bindings
         "build_bindings" : True,
     },
-
 }
 
 all_target_branches = ["master", "asford/indexed_structure_store", "scheme/master"]

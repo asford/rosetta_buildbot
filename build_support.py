@@ -18,6 +18,7 @@ class DeployBuild(ShellCommand):
             build_targets = Interpolate("%(prop:build_targets)s"),
             build_mode = Interpolate("%(prop:build_mode)s"),
             build_extras = Interpolate("%(prop:build_extras)s"),
+            link_current_build = Property("link_current_build", default=False),
             **kwargs):
 
         ShellCommand.__init__(
@@ -28,20 +29,23 @@ class DeployBuild(ShellCommand):
                build_name,
                build_targets,
                build_mode,
-               build_extras),
-            **kwargs) 
+               build_extras,
+               link_current_build
+            ),
+            **kwargs)
 
 class BuildCommandRenderer:
     implements(IRenderable)
-    renderables = ["build_targets", "build_mode", "build_extras", "force", "target_directory"]
+    renderables = ["build_targets", "build_mode", "build_extras", "force", "target_directory", "link_current_build"]
 
-    def __init__(self, target_directory, force, build_name, build_targets, build_mode, build_extras):
+    def __init__(self, target_directory, force, build_name, build_targets, build_mode, build_extras, link_current_build):
         self.target_directory = target_directory
         self.force = force
         self.build_name = build_name
         self.build_targets = build_targets
         self.build_mode = build_mode
         self.build_extras = build_extras
+        self.link_current_build = link_current_build
 
     def make_command(self, _):
         command = ["python", "deploy_build.py"]
@@ -55,6 +59,9 @@ class BuildCommandRenderer:
         if self.force:
             command.append("--force")
 
+        if self.link_current_build:
+            command.extend(["--link_current"])
+
         if self.build_name:
             command.extend(["--build_name", self.build_name])
         command.append(self.target_directory)
@@ -67,7 +74,7 @@ class BuildCommandRenderer:
 
         if self.build_targets:
             command.extend(split_targets(self.build_targets))
-        
+
         return command
 
     def getRenderingFor(self, props):
@@ -83,7 +90,7 @@ class BuildCommandRenderer:
             d.addCallback(setRenderable, renderable)
             dl.append(d)
         dl = defer.gatherResults(dl)
-        
+
         dl.addCallback(self.make_command)
         return dl
 
@@ -105,7 +112,7 @@ class SconsCompile(Compile):
                build_cat,
                build_extras,
                jobs),
-            **kwargs) 
+            **kwargs)
 
 class SconsCommandRenderer:
     implements(IRenderable)
@@ -142,7 +149,7 @@ class SconsCommandRenderer:
 
         if self.build_targets:
             command.extend(split_targets(self.build_targets))
-        
+
         return command
 
     def getRenderingFor(self, props):
@@ -158,6 +165,6 @@ class SconsCommandRenderer:
             d.addCallback(setRenderable, renderable)
             dl.append(d)
         dl = defer.gatherResults(dl)
-        
+
         dl.addCallback(self.make_command)
         return dl

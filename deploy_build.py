@@ -10,39 +10,64 @@ logging.basicConfig(level=logging.DEBUG)
 import subprocess
 import tempfile
 
-def resolve_build_drop_directory( target_directory, branch = None, revision = None, mode = None, extras = None, force_build_name=None):
-    """Generate build drop directory, resolving source and build parameters as needed."""
+def resolve_build_drop_parameters(branch = None, revision = None, mode = None, extras = None, force_build_name=None):
+    """Generate build drop directory components, resolving source and build parameters as needed."""
     if branch is None:
         branch = subprocess.check_output('git rev-parse --abbrev-ref HEAD'.split(" ")).strip()
     if revision is None:
         revision = subprocess.check_output('git rev-parse HEAD'.split(" ")).strip()
 
     if force_build_name:
-        build_type_name = force_build_name
+        type_name = force_build_name
     else:
-        build_type_name = []
+        type_name = []
         if mode:
-            build_type_name.append(mode)
+            type_name.append(mode)
 
         if extras:
-            build_type_name.append(extras)
+            type_name.append(extras)
 
-        if build_type_name:
-            build_type_name = "_".join(build_type_name)
+        if type_name:
+            type_name = "_".join(type_name)
         else:
-            build_type_name = "default"
+            type_name = "default"
 
-    return path.join(target_directory, build_type_name, branch, revision)
+    return dict( branch = branch, revision = revision, type_name = type_name )
+
+def resolve_build_drop_directory( target_directory, branch, revision, type_name):
+    """Generate build drop directory via given drop parameters."""
+    return path.join(target_directory, type_name, branch, revision)
+
+
+def setup_drop_links( link_name, target_directory, branch, revision, type_name):
+    """Generate inter-directory drop links for each element of the branch path."""
+    logging.info("Setup drop links.")
+    branch_path_elements = branch.split("/")
+
+    for i in xrange(len(branch_path_elements)):
+        path_prefix = path.join(*([target_directory, type_name] + branch_path_elements[:i+1]))
+        path_suffix = path.join(*(branch_path_elements[i + 1:] + [revision]) )
+        link_path = path.join(path_prefix, link_name)
+
+        if path.islink(link_path) and path.lexists(link_path):
+            logging.info("Removing existing link: %s", link_path)
+            os.remove(link_path)
+        elif path.lexists(link_path):
+            logging.warning("Skipping existing non-link file: %s", link_path)
+            continue
+
+        logging.info("Creating drop link. name: %s target: %s", link_path, path_suffix)
+        os.symlink(path_suffix, link_path)
 
 def perform_test_build(rosetta_root, targets = None, mode = None, extras = None):
     """Perform no-op scons build of the given build targets, generating a tree of build dependencies."""
     command = ["scons", "--tree=prune,derived", "-n"]
-    
+
     if mode:
         command.append("mode=%s" % mode)
     if extras:
         command.append("extras=%s" % extras)
-    
+
     command.extend(targets)
 
     logging.info("Beginning archive test build: %s", " ".join(command))
@@ -61,7 +86,7 @@ def extract_build_products(scons_tree_lines):
     build_product_pattern=re.compile("(?<=\+-)build.*")
     object_file_pattern=re.compile("\.(os|o)$")
     library_file_pattern=re.compile("\.so$")
-    
+
     library_files = set()
     binary_files = set()
 
@@ -77,7 +102,9 @@ def extract_build_products(scons_tree_lines):
             library_files.add(build_product_match.group())
         else:
             binary_files.add(build_product_match.group())
-    
+    if not binary_files and not library_files:
+        raise ValueError("No build products resolve from build result summary, likely build failure.")
+
     return binary_files, library_files
 
 def get_bin_name(build_binary):
@@ -118,13 +145,13 @@ def archive_build_products(rosetta_root, target_bins, target_libs, target_direct
         logging.info("Archive lib: %s %s", l_source, l_target)
         shutil.copy(l_source, l_target)
 
-    source_database = path.join(rosetta_root, "database") 
+    source_database = path.join(rosetta_root, "database")
     logging.info("Archive database: %s %s", source_database, database_drop_dir)
     shutil.copytree(source_database, database_drop_dir)
 
 def setup_build_products(rosetta_root, drop_directory, build_type = None, test_binary = None):
     """Execute single rosetta binary to setup rosetta database.
-    
+
         rosetta_root - Rosetta main root directory.
         drop_directory - Archived drop directory to search for bin & database.
         build_type - 'mpi' if build requires mpirun, else None.
@@ -135,7 +162,7 @@ def setup_build_products(rosetta_root, drop_directory, build_type = None, test_b
         candidate_binaries.insert(0, test_binary)
 
     tmpdir = tempfile.mkdtemp()
-    
+
     try:
         test_binary = None
         for c in candidate_binaries:
@@ -167,13 +194,16 @@ def setup_build_products(rosetta_root, drop_directory, build_type = None, test_b
 
         logging.info("Executing test binary to prepare target database: %s", test_command)
         subprocess.call(test_command, cwd=tmpdir)
-	
+
         if build_type=="mpi":
             logging.info("Updating mpi database permissions: %s", test_command)
             subprocess.call("chmod a+r %s/database/rotamer/ExtendedOpt1-5/*" % drop_directory, shell=True, cwd=tmpdir)
 
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+
 
 if __name__ == "__main__":
     import argparse
@@ -187,6 +217,7 @@ if __name__ == "__main__":
     parser.add_argument("--revision", default=None)
     parser.add_argument("--build_name", default=None)
     parser.add_argument("--force", default=False, action='store_true')
+    parser.add_argument("--link_current", default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -195,7 +226,8 @@ if __name__ == "__main__":
     if not rosetta_root:
         raise ValueError("Unable to resolve Rosetta root directory.")
 
-    drop_directory = resolve_build_drop_directory(args.target_directory, args.branch, args.revision, args.mode, args.extras, args.build_name)
+    drop_parameters = resolve_build_drop_parameters( args.branch, args.revision, args.mode, args.extras, args.build_name)
+    drop_directory = resolve_build_drop_directory(args.target_directory, **drop_parameters)
     logging.info("Resolved drop directory: %s", drop_directory)
 
     if path.exists(drop_directory):
@@ -217,3 +249,6 @@ if __name__ == "__main__":
         build_type = "mpi"
 
     setup_build_products(rosetta_root, drop_directory, build_type = build_type)
+
+    if args.link_current:
+        setup_drop_links("current", args.target_directory, **drop_parameters)
