@@ -49,7 +49,12 @@ unittest_steps = [
       jobs=Interpolate("%(prop:slave_build_cores)s"),
       workdir="main/source",
       flunkOnFailure=True,
-      description="testing", descriptionSuffix="unit")
+      description="testing", descriptionSuffix="unit"),
+    ShellCommand(
+        command=["python", "setup.py", "nosetests"],
+        workdir = "main/pyrosetta",
+        flunkOnFailure=True,
+        description="testing", descriptionSuffix="bindings"),
 ]
 
 #Steps for integration testing
@@ -72,9 +77,7 @@ integration_steps = [
 binding_build_steps = [
     ShellCommand(
       command=[
-        'source/src/python/bindings/BuildPackagedBindings.py',
-        '--no-color',
-        '--numpy_support',
+        'source/src/python/packaged_bindings/BuildPackagedBindings.py',
         '--python_lib=python2.7',
         '--boost_lib=boost_python',
         Interpolate('--boost_path=%(prop:binding_boost_path)s'),
@@ -82,7 +85,7 @@ binding_build_steps = [
         '--compiler=gcc',
         Interpolate("--jobs=%(prop:slave_build_cores)s"),
         '--update',
-        '--bindings_path=pyrosetta/rosetta'],
+        '--package_path=pyrosetta'],
       workdir="main",
       haltOnFailure=True,
       timeout=60*60,
@@ -96,16 +99,6 @@ binary_deploy_steps = [
   ]
 
 binding_deploy_steps = [
-    ShellCommand(
-        command=["cp", "-f", "source/src/python/bindings/packaging/setup.py", "pyrosetta/setup.py"],
-        workdir="main",
-        haltOnFailure=True,
-        description="prepare", descriptionSuffix="bindings setup.cfg"),
-    ShellCommand(
-        command=["ln", "-s", "-f", "../database"],
-        workdir="main/pyrosetta",
-        haltOnFailure=True,
-        description="prepare", descriptionSuffix="bindings database"),
     ShellCommand(
         command=[
           "python", "setup.py", "bdist_egg",
